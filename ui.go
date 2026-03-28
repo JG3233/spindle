@@ -91,7 +91,7 @@ func uiCreateFeedHandler(w http.ResponseWriter, r *http.Request) {
 			uiFeedsListHandler(w, r)
 			return
 		}
-		writeHTML(w, http.StatusBadGateway, fmt.Sprintf(`<p class="error">%s</p>`, escapeHTML(err.Error())))
+		writeHTML(w, http.StatusBadGateway, `<p class="error">Failed to fetch feed</p>`)
 		return
 	}
 
