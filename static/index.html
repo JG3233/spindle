@@ -14,9 +14,7 @@
                 <h1>Spindle</h1>
                 <span class="subtitle">Spin + WASM RSS Reader</span>
             </div>
-            <form method="POST" action="/api/logout" class="logout-form">
-                <button type="submit" class="btn-secondary">Logout</button>
-            </form>
+            <div hx-get="/api/ui/auth-status" hx-trigger="load" hx-swap="innerHTML"></div>
         </header>
 
         <div class="layout">

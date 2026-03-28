@@ -44,6 +44,8 @@ func router(w http.ResponseWriter, r *http.Request) {
 	// --- UI (HTMX) endpoints ---
 	// These return HTML fragments for HTMX to swap into the page.
 	// Must be matched before the JSON API routes since they share /api/feeds prefix.
+	case method == http.MethodGet && path == "/api/ui/auth-status":
+		uiAuthStatusHandler(w, r)
 	case method == http.MethodGet && path == "/api/ui/feeds":
 		uiFeedsListHandler(w, r)
 	case method == http.MethodPost && path == "/api/ui/feeds":

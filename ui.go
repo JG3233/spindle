@@ -274,6 +274,16 @@ func renderOneArticle(a *StoreArticle) string {
 	return b.String()
 }
 
+// uiAuthStatusHandler returns the logout button if auth is enabled, empty otherwise.
+// GET /api/ui/auth-status
+func uiAuthStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if getConfiguredPassword() == "" {
+		writeHTML(w, http.StatusOK, "")
+		return
+	}
+	writeHTML(w, http.StatusOK, `<form method="POST" action="/api/logout" class="logout-form"><button type="submit" class="btn-secondary">Logout</button></form>`)
+}
+
 func writeHTML(w http.ResponseWriter, status int, html string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
