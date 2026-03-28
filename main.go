@@ -19,10 +19,28 @@ func router(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimRight(r.URL.Path, "/")
 	method := r.Method
 
+	// --- Public endpoints (no auth required) ---
 	switch {
 	case method == http.MethodGet && path == "/api/health":
 		healthHandler(w, r)
+		return
+	case method == http.MethodGet && path == "/api/login":
+		loginPageHandler(w, r)
+		return
+	case method == http.MethodPost && path == "/api/login":
+		loginHandler(w, r)
+		return
+	case method == http.MethodPost && path == "/api/logout":
+		logoutHandler(w, r)
+		return
+	}
 
+	// All other routes require authentication
+	if !requireAuth(w, r) {
+		return
+	}
+
+	switch {
 	// --- UI (HTMX) endpoints ---
 	// These return HTML fragments for HTMX to swap into the page.
 	// Must be matched before the JSON API routes since they share /api/feeds prefix.
