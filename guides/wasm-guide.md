@@ -6,9 +6,9 @@
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │                                                                │
-│   "WebAssembly is not a language. It's a virtual machine      │
-│    instruction set — like x86 or ARM, but for a computer      │
-│    that doesn't exist in hardware."                           │
+│   "WebAssembly is not a language. It's a virtual machine       │
+│    instruction set — like x86 or ARM, but for a computer       │
+│    that doesn't exist in hardware."                            │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -73,12 +73,12 @@ WASM virtual machine model:
 │  │  load, store│    │   OS malloc)       │  │
 │  └─────────────┘    └────────────────────┘  │
 │                                             │
-│  ┌─────────────────────────────────────┐   │
-│  │  Imports & Exports                  │   │
-│  │  (the only way in and out)          │   │
-│  │  • host provides: print, read_file  │   │
-│  │  • module exports: handle_request   │   │
-│  └─────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────┐    │
+│  │  Imports & Exports                  │    │
+│  │  (the only way in and out)          │    │
+│  │  • host provides: print, read_file  │    │
+│  │  • module exports: handle_request   │    │
+│  └─────────────────────────────────────┘    │
 └─────────────────────────────────────────────┘
 ```
 
@@ -418,7 +418,7 @@ main.wasm contains:
 │    • _start / wasi_http_incoming_handler                │
 │    • handle_http_request                                │
 │                                                         │
-│  Linear memory: 64KB pages, grows as needed            │
+│  Linear memory: 64KB pages, grows as needed             │
 └─────────────────────────────────────────────────────────┘
 ```
 

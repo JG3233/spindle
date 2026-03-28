@@ -6,11 +6,11 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
-│   Go's philosophy in one sentence:                          │
+│   Go's philosophy in one sentence:                           │
 │                                                              │
-│   "Make the common case easy, make the wrong thing hard     │
-│    to do accidentally, and make the code readable           │
-│    by someone who didn't write it."                         │
+│   "Make the common case easy, make the wrong thing hard      │
+│    to do accidentally, and make the code readable            │
+│    by someone who didn't write it."                          │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```

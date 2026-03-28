@@ -9,7 +9,7 @@
 │   "I just want to read stuff without checking 30        │
 │    different websites every morning."                   │
 │                                                         │
-│   — Every RSS user, ever                               │
+│   — Every RSS user, ever                                │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -309,7 +309,7 @@ Now the rest of the app only knows about `Feed` and `Article`. The parsing compl
         feeds.go                        rest of app
   ┌──────────────────┐                ┌────────────┐
   │  rssXML ─────┐   │                │            │
-  │               ├──►│  Feed/Article │  store.go  │
+  │               ├─►│  Feed/Article  │  store.go  │
   │  atomXML ────┘   │                │  ui.go     │
   └──────────────────┘                │  main.go   │
                                       └────────────┘
