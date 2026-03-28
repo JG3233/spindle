@@ -5,6 +5,9 @@ name = "spindle"
 version = "0.1.0"
 description = "RSS feed reader built with Spin and WASM"
 
+[variables]
+password = { required = false, default = "" }
+
 # --- Component 1: API (our Go code) ---
 # Handles all /api/* routes. This is the WASM binary we compile from Go.
 [[trigger.http]]
@@ -16,6 +19,8 @@ source = "main.wasm"
 allowed_outbound_hosts = ["https://*:*", "http://*:*"]
 sqlite_databases = ["default"]
 key_value_stores = ["default"]
+[component.spindle.variables]
+password = "{{ password }}"
 
 [component.spindle.build]
 command = "tinygo build -target=wasip1 -gc=leaking -buildmode=c-shared -no-debug -o main.wasm ."
