@@ -1,3 +1,5 @@
+//go:build tinygo || wasip1
+
 package main
 
 import (
@@ -278,10 +280,3 @@ func writeHTML(w http.ResponseWriter, status int, html string) {
 	fmt.Fprint(w, html)
 }
 
-func escapeHTML(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, `"`, "&quot;")
-	return s
-}

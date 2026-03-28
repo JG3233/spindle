@@ -1,3 +1,5 @@
+//go:build tinygo || wasip1
+
 package main
 
 import (
@@ -76,37 +78,6 @@ func router(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
-}
-
-// --- Path helpers ---
-
-func parseFeedID(path string) int64 {
-	idStr := strings.TrimPrefix(path, "/api/feeds/")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		return -1
-	}
-	return id
-}
-
-// parseFeedIDFromRefresh handles "/api/feeds/42/refresh" → 42
-func parseFeedIDFromRefresh(path string) int64 {
-	trimmed := strings.TrimPrefix(path, "/api/feeds/")
-	trimmed = strings.TrimSuffix(trimmed, "/refresh")
-	id, err := strconv.ParseInt(trimmed, 10, 64)
-	if err != nil {
-		return -1
-	}
-	return id
-}
-
-func parseArticleID(path string) int64 {
-	idStr := strings.TrimPrefix(path, "/api/articles/")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		return -1
-	}
-	return id
 }
 
 // --- Handlers ---

@@ -1,3 +1,5 @@
+//go:build tinygo || wasip1
+
 package main
 
 // SQL schema as Go string constants. These run on every request that
