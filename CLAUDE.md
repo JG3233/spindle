@@ -43,6 +43,7 @@ Two Spin components routed by URL prefix:
 All routing within the API component is done manually in Go (`router` function in `main.go`) because third-party routers like httprouter can cause WASM traps at init time.
 
 - `main.go` — HTTP handler entry point + routing (JSON API handlers)
+- `auth.go` — Password authentication, session management (KV store), rate limiting
 - `ui.go` — HTMX HTML fragment handlers (return HTML, not JSON)
 - `models.go` — Data types: XML parsing structs (RSS/Atom) and normalized Feed/Article types
 - `feeds.go` — Feed fetching via outbound HTTP + XML parsing
@@ -63,10 +64,33 @@ Spin components are **stateless**: each HTTP request creates a fresh WASM instan
 - **No LastInsertId/RowsAffected** — Spin's SQLite driver doesn't support these; query back after inserts
 - **No transactions** — each SQL statement is independent
 
+## Authentication
+
+Optional password protection via Spin variables. When `password` is set, all endpoints except `/api/health` and `/api/login` require a valid session cookie.
+
+- **Disabled by default** — if `password` variable is empty or unset, all endpoints are open
+- **Sessions** stored in KV store with 7-day expiration, tokens generated via `crypto/rand`
+- **Rate limiting** — 5 failed login attempts triggers a 15-minute lockout
+- To enable locally: `spin up --variable password=yourpass`
+- To enable in cloud: `spin cloud variables set --app spindle password=yourpass`
+
+## Deployment (Fermyon Cloud)
+
+```bash
+spin cloud login                                          # Interactive browser auth (one-time)
+spin build && spin cloud deploy                           # Build and deploy
+spin cloud variables set --app spindle password=<pass>    # Set password (no redeploy needed)
+```
+
+Variables take effect immediately — no redeploy required after changing them.
+
 ## API Endpoints
 
 ```
 GET    /api/health
+GET    /api/login                              Login page (redirects to / if no password set)
+POST   /api/login                              Authenticate (form: password=...)
+POST   /api/logout                             Clear session
 POST   /api/feeds                              Subscribe (body: {"url": "..."})
 GET    /api/feeds                              List subscriptions
 GET    /api/feeds/:id                          Get feed
@@ -93,6 +117,7 @@ Three educational guides live in `guides/`. They trace RSS, Go, and WebAssembly 
 ### HTMX UI Endpoints (return HTML fragments)
 
 ```
+GET    /api/ui/auth-status                     Logout button (if auth enabled) or empty
 GET    /api/ui/feeds                           Feed sidebar list
 POST   /api/ui/feeds                           Subscribe (form-encoded)
 DELETE /api/ui/feeds/:id                       Unsubscribe + return updated list
