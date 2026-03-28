@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spindle</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="app">
+        <header>
+            <h1>Spindle</h1>
+            <span class="subtitle">Spin + WASM RSS Reader</span>
+        </header>
+
+        <div class="layout">
+            <aside class="sidebar">
+                <div class="subscribe-form">
+                    <form hx-post="/api/ui/feeds"
+                          hx-target="#feed-list"
+                          hx-swap="innerHTML"
+                          hx-on::after-request="if(event.detail.successful) this.reset()">
+                        <input type="url" name="url" placeholder="Paste feed URL..." required>
+                        <button type="submit">+</button>
+                    </form>
+                </div>
+                <nav>
+                    <div id="feed-list"
+                         hx-get="/api/ui/feeds"
+                         hx-trigger="load"
+                         hx-swap="innerHTML">
+                        <p class="loading">Loading...</p>
+                    </div>
+                </nav>
+            </aside>
+
+            <main class="content">
+                <div class="content-header">
+                    <h2 id="content-title">All Articles</h2>
+                    <div class="content-actions">
+                        <button hx-post="/api/ui/articles/mark-all-read"
+                                hx-target="#article-list"
+                                hx-swap="innerHTML"
+                                class="btn-secondary">
+                            Mark all read
+                        </button>
+                        <button hx-post="/api/ui/feeds/refresh-all"
+                                hx-target="#article-list"
+                                hx-swap="innerHTML"
+                                class="btn-secondary">
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div id="article-list"
+                     hx-get="/api/ui/articles"
+                     hx-trigger="load"
+                     hx-swap="innerHTML">
+                    <p class="loading">Loading articles...</p>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

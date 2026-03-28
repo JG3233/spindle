@@ -1,0 +1,35 @@
+spin_manifest_version = 2
+
+[application]
+name = "spindle"
+version = "0.1.0"
+description = "RSS feed reader built with Spin and WASM"
+
+# --- Component 1: API (our Go code) ---
+# Handles all /api/* routes. This is the WASM binary we compile from Go.
+[[trigger.http]]
+route = "/api/..."
+component = "spindle"
+
+[component.spindle]
+source = "main.wasm"
+allowed_outbound_hosts = ["https://*:*", "http://*:*"]
+sqlite_databases = ["default"]
+key_value_stores = ["default"]
+
+[component.spindle.build]
+command = "tinygo build -target=wasip1 -gc=leaking -buildmode=c-shared -no-debug -o main.wasm ."
+watch = ["**/*.go", "go.mod", "go.sum"]
+
+# --- Component 2: Static fileserver (pre-built WASM) ---
+# Handles everything else — serves HTML, CSS, JS from the static/ directory.
+# This is a SEPARATE WASM component: different sandbox, no network access,
+# no database access. It can only read files from its granted directory.
+# This is the multi-component WASM lesson: composition via routing.
+[[trigger.http]]
+route = "/..."
+component = "ui"
+
+[component.ui]
+source = { url = "https://github.com/spinframework/spin-fileserver/releases/download/v0.3.0/spin_static_fs.wasm", digest = "sha256:ef88708817e107bf49985c7cefe4dd1f199bf26f6727819183d5c996baa3d148" }
+files = [{ source = "static", destination = "/" }]

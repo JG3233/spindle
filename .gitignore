@@ -1,0 +1,9 @@
+# WASM build output
+*.wasm
+
+# Spin local data
+.spin/
+
+# Spin signing artifacts
+*.pem
+*.sig
