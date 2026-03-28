@@ -80,6 +80,16 @@ PATCH  /api/articles/:id                       Mark read/unread (body: {"is_read
 POST   /api/articles/mark-all-read?feed_id=    Bulk mark read
 ```
 
+## Beginner Guides
+
+Three educational guides live in `guides/`. They trace RSS, Go, and WebAssembly from first principles through the codebase.
+
+- `guides/rss-guide.md` — RSS/Atom format, XML parsing, deduplication
+- `guides/go-guide.md` — Go language patterns as used in this project
+- `guides/wasm-guide.md` — WebAssembly, WASI, Spin, and WASM-driven constraints
+
+**Keeping guides current:** Each guide embeds file:line references and code snippets. When source files change in a way that affects the concepts explained (e.g. the routing pattern, the DB open-per-request pattern, the build flags), update the relevant guide snippets and line numbers to match. The guides have a header note that tells readers snippets are point-in-time, but accurate references are better than stale ones.
+
 ### HTMX UI Endpoints (return HTML fragments)
 
 ```
