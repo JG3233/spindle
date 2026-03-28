@@ -8,7 +8,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spinframework/spin-go-sdk/v2/kv"
 	"github.com/spinframework/spin-go-sdk/v2/variables"
@@ -17,6 +19,11 @@ import (
 const (
 	sessionCookieName = "spindle_session"
 	sessionKVPrefix   = "session:"
+
+	// Rate limiting: lock out after maxLoginAttempts failures within the window.
+	rateLimitKVKey    = "login_attempts"
+	maxLoginAttempts  = 5
+	lockoutDurationS  = 900 // 15 minutes in seconds
 )
 
 // getConfiguredPassword returns the password from Spin variables.
@@ -29,20 +36,13 @@ func getConfiguredPassword() string {
 	return pw
 }
 
-// hashPassword returns a hex-encoded SHA-256 hash of the password.
-func hashPassword(password string) string {
-	h := sha256.Sum256([]byte(password))
-	return hex.EncodeToString(h[:])
-}
-
-// generateSessionToken creates a deterministic but unique-enough token
-// from the password. Since we're single-user, we hash the password with
-// a session-specific salt.
+// generateSessionToken creates a token from the password and current time.
+// Using the timestamp makes each login produce a distinct token, so
+// logging out actually invalidates the old session.
 func generateSessionToken(password string) string {
-	// Use the password hash as the session token base.
-	// This is acceptable for a single-user app — the token changes
-	// whenever the password changes.
-	h := sha256.Sum256([]byte("spindle-session:" + password))
+	ts := time.Now().UnixNano()
+	data := fmt.Sprintf("spindle-session:%s:%d", password, ts)
+	h := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(h[:])
 }
 
@@ -70,6 +70,70 @@ func validateSession(token string) bool {
 		return false
 	}
 	return exists
+}
+
+// --- Rate limiting ---
+// Tracks failed login attempts in KV as "count:unix_timestamp".
+// After maxLoginAttempts failures, further logins are rejected until
+// lockoutDurationS seconds have elapsed since the last failure.
+
+func getLoginAttempts() (int, int64) {
+	store, err := kv.OpenStore("default")
+	if err != nil {
+		return 0, 0
+	}
+	defer store.Close()
+
+	data, err := store.Get(rateLimitKVKey)
+	if err != nil {
+		return 0, 0
+	}
+
+	parts := strings.SplitN(string(data), ":", 2)
+	if len(parts) != 2 {
+		return 0, 0
+	}
+	count, _ := strconv.Atoi(parts[0])
+	ts, _ := strconv.ParseInt(parts[1], 10, 64)
+	return count, ts
+}
+
+func recordFailedLogin() {
+	store, err := kv.OpenStore("default")
+	if err != nil {
+		return
+	}
+	defer store.Close()
+
+	count, _ := getLoginAttempts()
+	now := time.Now().Unix()
+	store.Set(rateLimitKVKey, []byte(fmt.Sprintf("%d:%d", count+1, now)))
+}
+
+func resetLoginAttempts() {
+	store, err := kv.OpenStore("default")
+	if err != nil {
+		return
+	}
+	defer store.Close()
+
+	store.Delete(rateLimitKVKey)
+}
+
+func isLockedOut() bool {
+	count, lastFailure := getLoginAttempts()
+	if count < maxLoginAttempts {
+		return false
+	}
+
+	now := time.Now().Unix()
+	if now-lastFailure > int64(lockoutDurationS) {
+		// Lockout expired — reset
+		resetLoginAttempts()
+		return false
+	}
+
+	return true
 }
 
 // requireAuth checks if the request is authenticated.
@@ -164,11 +228,21 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check rate limit before doing anything else
+	if isLockedOut() {
+		http.Redirect(w, r, "/api/login?error=Too+many+attempts.+Try+again+later.", http.StatusSeeOther)
+		return
+	}
+
 	submitted := r.FormValue("password")
 	if subtle.ConstantTimeCompare([]byte(submitted), []byte(password)) != 1 {
+		recordFailedLogin()
 		http.Redirect(w, r, "/api/login?error=Invalid+password", http.StatusSeeOther)
 		return
 	}
+
+	// Successful login — reset rate limiter
+	resetLoginAttempts()
 
 	// Create session
 	token := generateSessionToken(password)
@@ -182,6 +256,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https",
 		SameSite: http.SameSiteLaxMode,
 	})
 
