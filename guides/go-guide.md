@@ -1,6 +1,8 @@
 # Go From First Principles
 ### *A guided tour through Spindle — no prior knowledge assumed*
 
+> **Note:** Code references in this guide point to specific file locations (e.g. `main.go:14`) and include inline snippets. These are accurate as of when the guide was written. If the source files have changed, treat the snippets as illustrative examples and refer to the actual files for the current implementation.
+
 ---
 
 ```
