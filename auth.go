@@ -3,7 +3,7 @@
 package main
 
 import (
-	"crypto/sha256"
+	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
@@ -19,11 +19,12 @@ import (
 const (
 	sessionCookieName = "spindle_session"
 	sessionKVPrefix   = "session:"
+	sessionMaxAgeS    = 7 * 24 * 3600 // 7 days in seconds
 
 	// Rate limiting: lock out after maxLoginAttempts failures within the window.
-	rateLimitKVKey    = "login_attempts"
-	maxLoginAttempts  = 5
-	lockoutDurationS  = 900 // 15 minutes in seconds
+	rateLimitKVKey   = "login_attempts"
+	maxLoginAttempts = 5
+	lockoutDurationS = 900 // 15 minutes in seconds
 )
 
 // getConfiguredPassword returns the password from Spin variables.
@@ -36,17 +37,17 @@ func getConfiguredPassword() string {
 	return pw
 }
 
-// generateSessionToken creates a token from the password and current time.
-// Using the timestamp makes each login produce a distinct token, so
-// logging out actually invalidates the old session.
-func generateSessionToken(password string) string {
-	ts := time.Now().UnixNano()
-	data := fmt.Sprintf("spindle-session:%s:%d", password, ts)
-	h := sha256.Sum256([]byte(data))
-	return hex.EncodeToString(h[:])
+// generateSessionToken creates a cryptographically random token.
+func generateSessionToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback should never happen — crypto/rand uses OS entropy.
+		panic("crypto/rand failed: " + err.Error())
+	}
+	return hex.EncodeToString(b)
 }
 
-// storeSession saves a session token in the KV store.
+// storeSession saves a session token in the KV store with a creation timestamp.
 func storeSession(token string) error {
 	store, err := kv.OpenStore("default")
 	if err != nil {
@@ -54,10 +55,12 @@ func storeSession(token string) error {
 	}
 	defer store.Close()
 
-	return store.Set(sessionKVPrefix+token, []byte("1"))
+	// Store the creation time so we can enforce expiration.
+	createdAt := strconv.FormatInt(time.Now().Unix(), 10)
+	return store.Set(sessionKVPrefix+token, []byte(createdAt))
 }
 
-// validateSession checks if a session token exists in the KV store.
+// validateSession checks if a session token exists and hasn't expired.
 func validateSession(token string) bool {
 	store, err := kv.OpenStore("default")
 	if err != nil {
@@ -65,11 +68,22 @@ func validateSession(token string) bool {
 	}
 	defer store.Close()
 
-	exists, err := store.Exists(sessionKVPrefix + token)
+	data, err := store.Get(sessionKVPrefix + token)
 	if err != nil {
 		return false
 	}
-	return exists
+
+	createdAt, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil {
+		return false
+	}
+
+	if time.Now().Unix()-createdAt > int64(sessionMaxAgeS) {
+		// Expired — clean up
+		store.Delete(sessionKVPrefix + token)
+		return false
+	}
+	return true
 }
 
 // --- Rate limiting ---
@@ -245,7 +259,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	resetLoginAttempts()
 
 	// Create session
-	token := generateSessionToken(password)
+	token := generateSessionToken()
 	if err := storeSession(token); err != nil {
 		writeHTML(w, http.StatusInternalServerError, "Failed to create session")
 		return

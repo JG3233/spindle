@@ -115,7 +115,7 @@ func previewHandler(w http.ResponseWriter, r *http.Request) {
 
 	feed, err := fetchFeed(url)
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to fetch feed"})
 		return
 	}
 
@@ -135,7 +135,7 @@ func createFeedHandler(w http.ResponseWriter, r *http.Request) {
 
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -147,7 +147,7 @@ func createFeedHandler(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to fetch feed"})
 		return
 	}
 
@@ -157,13 +157,13 @@ func createFeedHandler(w http.ResponseWriter, r *http.Request) {
 func listFeedsHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
 	feeds, err := listFeeds(db)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -182,7 +182,7 @@ func getFeedHandler(w http.ResponseWriter, r *http.Request, path string) {
 
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -204,12 +204,12 @@ func deleteFeedHandler(w http.ResponseWriter, r *http.Request, path string) {
 
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
 	if err := deleteFeed(db, id); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -227,7 +227,7 @@ func refreshFeedHandler(w http.ResponseWriter, r *http.Request, path string) {
 
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -239,7 +239,7 @@ func refreshFeedHandler(w http.ResponseWriter, r *http.Request, path string) {
 
 	added, err := refreshFeed(db, feed)
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "failed to fetch feed"})
 		return
 	}
 
@@ -254,13 +254,13 @@ func refreshFeedHandler(w http.ResponseWriter, r *http.Request, path string) {
 func refreshAllHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
 	feeds, err := listFeeds(db)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -288,7 +288,7 @@ func refreshAllHandler(w http.ResponseWriter, r *http.Request) {
 func listArticlesHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -308,7 +308,7 @@ func listArticlesHandler(w http.ResponseWriter, r *http.Request) {
 
 	articles, err := listArticles(db, feedID, isRead, limit, offset)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -329,7 +329,7 @@ func getArticleHandler(w http.ResponseWriter, r *http.Request, path string) {
 
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -361,12 +361,12 @@ func updateArticleHandler(w http.ResponseWriter, r *http.Request, path string) {
 
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
 	if err := updateArticleRead(db, id, req.IsRead); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
@@ -384,14 +384,14 @@ func updateArticleHandler(w http.ResponseWriter, r *http.Request, path string) {
 func markAllReadHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := openDB()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
 	feedID, _ := strconv.ParseInt(r.URL.Query().Get("feed_id"), 10, 64)
 
 	if err := markAllRead(db, feedID); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 
