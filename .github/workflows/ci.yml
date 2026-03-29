@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+  build:
+    name: Build WASM
+    runs-on: ubuntu-latest
+    needs: unit-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Install binaryen
+        run: sudo apt-get install -y binaryen
+
+      - name: Cache TinyGo
+        id: cache-tinygo
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/tinygo
+          key: tinygo-0.35.0
+
+      - name: Install TinyGo 0.35.0
+        if: steps.cache-tinygo.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://github.com/tinygo-org/tinygo/releases/download/v0.35.0/tinygo0.35.0.linux-amd64.tar.gz
+          tar -xzf tinygo0.35.0.linux-amd64.tar.gz -C $HOME/.local/
+
+      - name: Add TinyGo to PATH
+        run: echo "$HOME/.local/tinygo/bin" >> $GITHUB_PATH
+
+      - name: Install Spin CLI
+        uses: fermyon/actions/spin/setup@v1
+
+      - name: Build
+        run: spin build
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: main.wasm
+          path: main.wasm
+          retention-days: 7
