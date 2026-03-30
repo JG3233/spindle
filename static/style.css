@@ -332,21 +332,44 @@ header h1 {
 
 /* Refresh toast notification */
 @keyframes toastFadeOut {
-    0%, 70% { opacity: 1; max-height: 60px; margin-bottom: 0.5rem; padding: 0.5rem 1rem; }
-    100%     { opacity: 0; max-height: 0; margin: 0; padding: 0; overflow: hidden; }
+    0%, 65% { opacity: 1; }
+    100%     { opacity: 0; }
 }
 
 .refresh-toast {
-    background: var(--teal-dim);
     color: var(--teal);
-    border: 1px solid rgba(45, 212, 191, 0.25);
-    border-radius: 6px;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
     animation: toastFadeOut 3s ease forwards;
     pointer-events: none;
 }
 
 .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Load more button */
+.btn-load-more {
+    display: block;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: none;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.12s;
+}
+
+.btn-load-more:hover {
+    border-color: var(--purple);
+    color: var(--purple);
+}
+
+.btn-load-more:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }

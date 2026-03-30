@@ -6,6 +6,15 @@
     <title>Spindle</title>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <link rel="stylesheet" href="/style.css">
+    <script>
+        document.addEventListener('refreshDone', function(e) {
+            var t = document.getElementById('refresh-toast');
+            t.textContent = e.detail.value;
+            t.classList.remove('refresh-toast');
+            void t.offsetWidth; // force reflow to restart CSS animation
+            t.classList.add('refresh-toast');
+        });
+    </script>
 </head>
 <body>
     <div class="app">
@@ -42,6 +51,7 @@
                 <div class="content-header">
                     <h2 id="content-title">All Articles</h2>
                     <div class="content-actions">
+                        <span id="refresh-toast"></span>
                         <button hx-post="/api/ui/articles/mark-all-read"
                                 hx-target="#article-list"
                                 hx-swap="innerHTML"
