@@ -330,6 +330,27 @@ header h1 {
 .htmx-request .htmx-indicator,
 .htmx-request.htmx-indicator { display: inline; }
 
+/* Refresh toast notification */
+@keyframes toastFadeOut {
+    0%, 70% { opacity: 1; max-height: 60px; margin-bottom: 0.5rem; padding: 0.5rem 1rem; }
+    100%     { opacity: 0; max-height: 0; margin: 0; padding: 0; overflow: hidden; }
+}
+
+.refresh-toast {
+    background: var(--teal-dim);
+    color: var(--teal);
+    border: 1px solid rgba(45, 212, 191, 0.25);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    animation: toastFadeOut 3s ease forwards;
+    pointer-events: none;
+}
+
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Login page */
 .login-container {
     max-width: 340px;
