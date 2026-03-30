@@ -179,19 +179,20 @@ func uiRefreshAllHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var b strings.Builder
-
-	// OOB swap: updates #refresh-toast in the header, independent of the
-	// article list target. HTMX pulls this element out of the response and
-	// swaps it to its matching DOM id, then swaps the rest into #article-list.
+	// Send the toast message via HX-Trigger-After-Swap so the client fires
+	// a "refreshDone" event after the article list is swapped in. The JS
+	// listener in index.html updates #refresh-toast and restarts its animation.
+	var msg string
 	if totalNew == 1 {
-		b.WriteString(`<span id="refresh-toast" hx-swap-oob="true" class="refresh-toast">1 new article</span>`)
+		msg = "1 new article"
 	} else if totalNew > 1 {
-		fmt.Fprintf(&b, `<span id="refresh-toast" hx-swap-oob="true" class="refresh-toast">%d new articles</span>`, totalNew)
+		msg = fmt.Sprintf("%d new articles", totalNew)
 	} else {
-		b.WriteString(`<span id="refresh-toast" hx-swap-oob="true" class="refresh-toast">Already up to date</span>`)
+		msg = "Already up to date"
 	}
+	w.Header().Set("HX-Trigger-After-Swap", fmt.Sprintf(`{"refreshDone":"%s"}`, msg))
 
+	var b strings.Builder
 	if len(articles) == 0 {
 		b.WriteString(`<p class="empty">No articles yet. Subscribe to a feed and refresh!</p>`)
 	} else {
