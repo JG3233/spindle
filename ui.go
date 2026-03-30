@@ -161,11 +161,37 @@ func uiRefreshAllHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	totalNew := 0
 	for i := range feeds {
-		refreshFeed(db, &feeds[i])
+		n, _ := refreshFeed(db, &feeds[i])
+		totalNew += n
 	}
 
-	renderArticleList(w, db, 0)
+	articles, err := listArticles(db, 0, -1, 100, 0)
+	if err != nil {
+		writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to load articles</p>`)
+		return
+	}
+
+	var b strings.Builder
+
+	if totalNew == 1 {
+		b.WriteString(`<div class="refresh-toast">1 new article</div>`)
+	} else if totalNew > 1 {
+		fmt.Fprintf(&b, `<div class="refresh-toast">%d new articles</div>`, totalNew)
+	} else {
+		b.WriteString(`<div class="refresh-toast">Already up to date</div>`)
+	}
+
+	if len(articles) == 0 {
+		b.WriteString(`<p class="empty">No articles yet. Subscribe to a feed and refresh!</p>`)
+	} else {
+		for i := range articles {
+			b.WriteString(renderOneArticle(&articles[i]))
+		}
+	}
+
+	writeHTML(w, http.StatusOK, b.String())
 }
 
 // uiArticlesHandler returns the article list HTML.
