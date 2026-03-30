@@ -349,6 +349,31 @@ header h1 {
     cursor: not-allowed;
 }
 
+/* Load more button */
+.btn-load-more {
+    display: block;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: none;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.12s;
+}
+
+.btn-load-more:hover {
+    border-color: var(--purple);
+    color: var(--purple);
+}
+
+.btn-load-more:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Login page */
 .login-container {
     max-width: 340px;

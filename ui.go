@@ -149,7 +149,7 @@ func uiRefreshFeedHandler(w http.ResponseWriter, r *http.Request, path string) {
 	}
 
 	refreshFeed(db, feed)
-	renderArticleList(w, db, id)
+	renderArticleList(w, db, id, 0)
 }
 
 // uiRefreshAllHandler refreshes all feeds and returns all articles.
@@ -173,12 +173,6 @@ func uiRefreshAllHandler(w http.ResponseWriter, r *http.Request) {
 		totalNew += n
 	}
 
-	articles, err := listArticles(db, 0, -1, 100, 0)
-	if err != nil {
-		writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to load articles</p>`)
-		return
-	}
-
 	// Send the toast message via HX-Trigger-After-Swap so the client fires
 	// a "refreshDone" event after the article list is swapped in. The JS
 	// listener in index.html updates #refresh-toast and restarts its animation.
@@ -192,20 +186,11 @@ func uiRefreshAllHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("HX-Trigger-After-Swap", fmt.Sprintf(`{"refreshDone":"%s"}`, msg))
 
-	var b strings.Builder
-	if len(articles) == 0 {
-		b.WriteString(`<p class="empty">No articles yet. Subscribe to a feed and refresh!</p>`)
-	} else {
-		for i := range articles {
-			b.WriteString(renderOneArticle(&articles[i]))
-		}
-	}
-
-	writeHTML(w, http.StatusOK, b.String())
+	renderArticleList(w, db, 0, 0)
 }
 
 // uiArticlesHandler returns the article list HTML.
-// GET /api/ui/articles?feed_id=1
+// GET /api/ui/articles?feed_id=1&offset=0
 func uiArticlesHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := openDB()
 	if err != nil {
@@ -214,7 +199,8 @@ func uiArticlesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	feedID, _ := strconv.ParseInt(r.URL.Query().Get("feed_id"), 10, 64)
-	renderArticleList(w, db, feedID)
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	renderArticleList(w, db, feedID, offset)
 }
 
 // uiToggleReadHandler toggles read/unread and returns the updated article.
@@ -256,19 +242,21 @@ func uiMarkAllReadHandler(w http.ResponseWriter, r *http.Request) {
 
 	feedID, _ := strconv.ParseInt(r.URL.Query().Get("feed_id"), 10, 64)
 	markAllRead(db, feedID)
-	renderArticleList(w, db, feedID)
+	renderArticleList(w, db, feedID, 0)
 }
 
 // --- HTML rendering helpers ---
 
-func renderArticleList(w http.ResponseWriter, db *sql.DB, feedID int64) {
-	articles, err := listArticles(db, feedID, -1, 100, 0)
+const pageSize = 25
+
+func renderArticleList(w http.ResponseWriter, db *sql.DB, feedID int64, offset int) {
+	articles, err := listArticles(db, feedID, -1, pageSize, offset)
 	if err != nil {
 		writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to load articles</p>`)
 		return
 	}
 
-	if len(articles) == 0 {
+	if len(articles) == 0 && offset == 0 {
 		writeHTML(w, http.StatusOK, `<p class="empty">No articles yet. Subscribe to a feed and refresh!</p>`)
 		return
 	}
@@ -277,6 +265,23 @@ func renderArticleList(w http.ResponseWriter, db *sql.DB, feedID int64) {
 	for i := range articles {
 		b.WriteString(renderOneArticle(&articles[i]))
 	}
+
+	// If a full page came back there may be more — show a Load more button.
+	// It targets itself with outerHTML, so clicking it appends the next batch
+	// in place of the button (and renders a new button if there's yet another page).
+	if len(articles) == pageSize {
+		feedParam := ""
+		if feedID > 0 {
+			feedParam = fmt.Sprintf("&feed_id=%d", feedID)
+		}
+		fmt.Fprintf(&b,
+			`<button id="load-more-btn" class="btn-load-more" `+
+				`hx-get="/api/ui/articles?offset=%d%s" `+
+				`hx-target="#load-more-btn" hx-swap="outerHTML" `+
+				`hx-disabled-elt="this">Load more</button>`,
+			offset+pageSize, feedParam)
+	}
+
 	writeHTML(w, http.StatusOK, b.String())
 }
 
