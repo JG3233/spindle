@@ -42,6 +42,12 @@ func uiFeedsListHandler(w http.ResponseWriter, r *http.Request) {
 	b.WriteString(`hx-get="/api/ui/articles" hx-target="#article-list" hx-swap="innerHTML" `)
 	b.WriteString(`onclick="document.getElementById('content-title').textContent='All Articles'">`)
 	b.WriteString(`<span class="feed-title">All Articles</span>`)
+	b.WriteString(`<span class="feed-actions">` +
+		`<button class="btn-icon" hx-post="/api/ui/feeds/refresh-all" ` +
+		`hx-target="#article-list" hx-swap="innerHTML" ` +
+		`hx-disabled-elt="this" ` +
+		`onclick="event.stopPropagation()" title="Refresh all">&#8635;</button>` +
+		`</span>`)
 	b.WriteString(`</div>`)
 
 	if len(feeds) == 0 {
@@ -175,12 +181,15 @@ func uiRefreshAllHandler(w http.ResponseWriter, r *http.Request) {
 
 	var b strings.Builder
 
+	// OOB swap: updates #refresh-toast in the header, independent of the
+	// article list target. HTMX pulls this element out of the response and
+	// swaps it to its matching DOM id, then swaps the rest into #article-list.
 	if totalNew == 1 {
-		b.WriteString(`<div class="refresh-toast">1 new article</div>`)
+		b.WriteString(`<span id="refresh-toast" hx-swap-oob="true" class="refresh-toast">1 new article</span>`)
 	} else if totalNew > 1 {
-		fmt.Fprintf(&b, `<div class="refresh-toast">%d new articles</div>`, totalNew)
+		fmt.Fprintf(&b, `<span id="refresh-toast" hx-swap-oob="true" class="refresh-toast">%d new articles</span>`, totalNew)
 	} else {
-		b.WriteString(`<div class="refresh-toast">Already up to date</div>`)
+		b.WriteString(`<span id="refresh-toast" hx-swap-oob="true" class="refresh-toast">Already up to date</span>`)
 	}
 
 	if len(articles) == 0 {
