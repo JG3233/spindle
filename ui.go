@@ -184,7 +184,7 @@ func uiRefreshAllHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		msg = "Already up to date"
 	}
-	w.Header().Set("HX-Trigger-After-Swap", fmt.Sprintf(`{"refreshDone":"%s"}`, msg))
+	w.Header().Set("HX-Trigger-After-Swap", fmt.Sprintf(`{"refreshDone":{"msg":"%s"}}`, msg))
 
 	renderArticleList(w, db, 0, 0)
 }

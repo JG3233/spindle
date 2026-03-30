@@ -9,7 +9,7 @@
     <script>
         document.addEventListener('refreshDone', function(e) {
             var t = document.getElementById('refresh-toast');
-            t.textContent = e.detail.value;
+            t.textContent = e.detail.msg;
             t.classList.remove('refresh-toast');
             void t.offsetWidth; // force reflow to restart CSS animation
             t.classList.add('refresh-toast');
