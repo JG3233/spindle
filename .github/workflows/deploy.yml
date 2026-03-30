@@ -30,6 +30,7 @@ jobs:
       - name: Install TinyGo 0.35.0
         if: steps.cache-tinygo.outputs.cache-hit != 'true'
         run: |
+          mkdir -p $HOME/.local
           wget -q https://github.com/tinygo-org/tinygo/releases/download/v0.35.0/tinygo0.35.0.linux-amd64.tar.gz
           tar -xzf tinygo0.35.0.linux-amd64.tar.gz -C $HOME/.local/
 
