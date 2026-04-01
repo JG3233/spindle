@@ -158,7 +158,7 @@ func uiRefreshFeedHandler(w http.ResponseWriter, r *http.Request, path string) {
 	} else {
 		msg = "Already up to date"
 	}
-	w.Header().Set("HX-Trigger-After-Swap", fmt.Sprintf(`{"refreshDone":{"msg":"%s"}}`, msg))
+	w.Header().Set("X-Refresh-Message", msg)
 	renderArticleList(w, db, id, 0)
 }
 
@@ -194,7 +194,7 @@ func uiRefreshAllHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		msg = "Already up to date"
 	}
-	w.Header().Set("HX-Trigger-After-Swap", fmt.Sprintf(`{"refreshDone":{"msg":"%s"}}`, msg))
+	w.Header().Set("X-Refresh-Message", msg)
 
 	renderArticleList(w, db, 0, 0)
 }

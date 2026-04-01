@@ -7,12 +7,28 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <link rel="stylesheet" href="/style.css">
     <script>
-        document.addEventListener('refreshDone', function(e) {
+        var refreshToastTimer = null;
+        function showRefreshToast(msg) {
             var t = document.getElementById('refresh-toast');
-            t.textContent = e.detail.msg;
-            t.classList.remove('refresh-toast');
-            void t.offsetWidth; // force reflow to restart CSS animation
-            t.classList.add('refresh-toast');
+            t.textContent = msg;
+            t.style.transition = 'none';
+            t.style.opacity = '1';
+            clearTimeout(refreshToastTimer);
+            refreshToastTimer = setTimeout(function() {
+                t.style.transition = 'opacity 1s';
+                t.style.opacity = '0';
+            }, 2500);
+        }
+        // htmx:afterRequest is a built-in HTMX event guaranteed to bubble to document.
+        // We check the hx-post attribute to identify refresh requests, then read
+        // the message from a plain response header (no HTMX event parsing involved).
+        document.addEventListener('htmx:afterRequest', function(e) {
+            if (!e.detail.successful) return;
+            var post = e.detail.elt.getAttribute('hx-post') || '';
+            if (post === '/api/ui/feeds/refresh-all' || /\/api\/ui\/feeds\/\d+\/refresh$/.test(post)) {
+                var msg = e.detail.xhr.getResponseHeader('X-Refresh-Message');
+                if (msg) showRefreshToast(msg);
+            }
         });
     </script>
 </head>
