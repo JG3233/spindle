@@ -63,6 +63,7 @@ func uiFeedsListHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(&b, `<span class="feed-actions">`+
 			`<button class="btn-icon" hx-post="/api/ui/feeds/%d/refresh" `+
 			`hx-target="#article-list" hx-swap="innerHTML" `+
+			`hx-disabled-elt="this" `+
 			`onclick="event.stopPropagation()" title="Refresh">&#8635;</button>`+
 			`<button class="btn-icon" hx-delete="/api/ui/feeds/%d" `+
 			`hx-target="#feed-list" hx-swap="innerHTML" `+
@@ -148,7 +149,16 @@ func uiRefreshFeedHandler(w http.ResponseWriter, r *http.Request, path string) {
 		return
 	}
 
-	refreshFeed(db, feed)
+	n, _ := refreshFeed(db, feed)
+	var msg string
+	if n == 1 {
+		msg = "1 new article"
+	} else if n > 1 {
+		msg = fmt.Sprintf("%d new articles", n)
+	} else {
+		msg = "Already up to date"
+	}
+	w.Header().Set("HX-Trigger-After-Swap", fmt.Sprintf(`{"refreshDone":{"msg":"%s"}}`, msg))
 	renderArticleList(w, db, id, 0)
 }
 
