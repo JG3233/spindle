@@ -330,17 +330,12 @@ header h1 {
 .htmx-request .htmx-indicator,
 .htmx-request.htmx-indicator { display: inline; }
 
-/* Refresh toast notification */
-@keyframes toastFadeOut {
-    0%, 65% { opacity: 1; }
-    100%     { opacity: 0; }
-}
-
-.refresh-toast {
+/* Refresh toast — opacity controlled by JS in index.html */
+#refresh-toast {
     color: var(--teal);
     font-size: 0.8rem;
     white-space: nowrap;
-    animation: toastFadeOut 3s ease forwards;
+    opacity: 0;
     pointer-events: none;
 }
 

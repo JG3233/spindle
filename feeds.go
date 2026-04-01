@@ -163,12 +163,15 @@ func normalizeDate(s string) string {
 	return s // Can't parse — return as-is
 }
 
-// truncate cuts a string to maxLen, adding "..." if truncated.
+// truncate cuts a string to maxLen runes, adding "..." if truncated.
 // RSS descriptions can contain entire HTML pages — we just want a preview.
+// We count runes (not bytes) to avoid splitting multi-byte UTF-8 characters,
+// which would produce invalid UTF-8 and crash Spin's SQLite driver.
 func truncate(s string, maxLen int) string {
 	s = strings.TrimSpace(s)
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "..."
+	return string(runes[:maxLen]) + "..."
 }
