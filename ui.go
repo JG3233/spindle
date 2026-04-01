@@ -91,7 +91,7 @@ func uiCreateFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = addFeed(db, url)
+	feed, err := addFeed(db, url)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			// Still return the feed list so the UI isn't broken
@@ -102,7 +102,18 @@ func uiCreateFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return the updated feed list
+	// Count articles stored so the client can show a meaningful toast.
+	// addFeed already called insertArticles, so these are already in the DB.
+	var count int
+	db.QueryRow(`SELECT COUNT(*) FROM articles WHERE feed_id = ?`, feed.ID).Scan(&count)
+	if count == 1 {
+		w.Header().Set("X-Refresh-Message", "1 article added")
+	} else if count > 1 {
+		w.Header().Set("X-Refresh-Message", fmt.Sprintf("%d articles added", count))
+	}
+
+	// Return the updated feed list. The JS listener will also reload #article-list
+	// via htmx.ajax when it sees X-Refresh-Message on a POST /api/ui/feeds response.
 	uiFeedsListHandler(w, r)
 }
 
