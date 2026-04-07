@@ -39,6 +39,27 @@ func parseArticleID(path string) int64 {
 	return id
 }
 
+// parseFolderID extracts the folder ID from "/api/ui/folders/:id"
+func parseFolderID(path string) int64 {
+	idStr := strings.TrimPrefix(path, "/api/ui/folders/")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return -1
+	}
+	return id
+}
+
+// parseFeedIDFromUIFolder handles "/api/ui/feeds/42/folder" → 42
+func parseFeedIDFromUIFolder(path string) int64 {
+	trimmed := strings.TrimPrefix(path, "/api/ui/feeds/")
+	trimmed = strings.TrimSuffix(trimmed, "/folder")
+	id, err := strconv.ParseInt(trimmed, 10, 64)
+	if err != nil {
+		return -1
+	}
+	return id
+}
+
 // --- HTML helpers ---
 
 func escapeHTML(s string) string {

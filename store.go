@@ -5,6 +5,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/spinframework/spin-go-sdk/v2/sqlite"
 )
@@ -21,8 +22,19 @@ func openDB() (*sql.DB, error) {
 	db := sqlite.Open("default")
 
 	// Run each migration. IF NOT EXISTS makes these no-ops after first run.
-	for _, migration := range []string{createFeedsTable, createArticlesTable, createArticleIndexes} {
+	for _, migration := range []string{
+		createFeedsTable, createArticlesTable, createArticleIndexes,
+		createFoldersTable, createFeedFolderIndex,
+	} {
 		if _, err := db.Exec(migration); err != nil {
+			return nil, fmt.Errorf("running migration: %w", err)
+		}
+	}
+
+	// ALTER TABLE doesn't support IF NOT EXISTS, so we ignore "duplicate column" errors
+	// from redeployments where the column already exists.
+	if _, err := db.Exec(addFolderIDToFeeds); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
 			return nil, fmt.Errorf("running migration: %w", err)
 		}
 	}
@@ -32,33 +44,28 @@ func openDB() (*sql.DB, error) {
 
 // --- Feed (subscription) operations ---
 
-// StoreFeed represents a feed row from the database.
-// This is separate from the Feed type in models.go — that one is for
-// parsed XML data. This one has database fields like id and created_at.
-type StoreFeed struct {
-	ID            int64  `json:"id"`
-	URL           string `json:"url"`
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	SiteLink      string `json:"site_link"`
-	LastFetchedAt string `json:"last_fetched_at,omitempty"`
-	CreatedAt     string `json:"created_at"`
-}
+// StoreFeed, StoreFolder, and StoreArticle types are defined in models.go
+// so they can be used in tests without the Spin SDK build tags.
 
 // addFeed subscribes to a new feed. It fetches the feed first to get
 // its title and description, then inserts it into the database.
-func addFeed(db *sql.DB, url string) (*StoreFeed, error) {
+// folderID of 0 means no folder (shown under "General").
+func addFeed(db *sql.DB, url string, folderID int64) (*StoreFeed, error) {
 	// Fetch and parse the feed to get metadata
 	feed, err := fetchFeed(url)
 	if err != nil {
 		return nil, fmt.Errorf("fetching feed: %w", err)
 	}
 
-	// Insert the subscription
+	// Insert the subscription. Use NULL for folder_id when unassigned.
+	var folderVal any
+	if folderID > 0 {
+		folderVal = folderID
+	}
 	_, err = db.Exec(
-		`INSERT INTO feeds (url, title, description, site_link, last_fetched_at)
-		 VALUES (?, ?, ?, ?, datetime('now'))`,
-		url, feed.Title, feed.Description, feed.Link,
+		`INSERT INTO feeds (url, title, description, site_link, last_fetched_at, folder_id)
+		 VALUES (?, ?, ?, ?, datetime('now'), ?)`,
+		url, feed.Title, feed.Description, feed.Link, folderVal,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("inserting feed: %w", err)
@@ -80,34 +87,33 @@ func addFeed(db *sql.DB, url string) (*StoreFeed, error) {
 
 func getFeedByURL(db *sql.DB, url string) (*StoreFeed, error) {
 	row := db.QueryRow(`SELECT id, url, title, description, site_link,
-		COALESCE(last_fetched_at, ''), created_at FROM feeds WHERE url = ?`, url)
+		COALESCE(folder_id, 0), COALESCE(last_fetched_at, ''), created_at
+		FROM feeds WHERE url = ?`, url)
 	return scanFeed(row)
 }
 
 func getFeed(db *sql.DB, id int64) (*StoreFeed, error) {
 	row := db.QueryRow(`SELECT id, url, title, description, site_link,
-		COALESCE(last_fetched_at, ''), created_at FROM feeds WHERE id = ?`, id)
+		COALESCE(folder_id, 0), COALESCE(last_fetched_at, ''), created_at
+		FROM feeds WHERE id = ?`, id)
 	return scanFeed(row)
 }
 
-// listFeeds returns all subscribed feeds.
+// listFeeds returns all subscribed feeds, ordered by folder then subscription date.
 func listFeeds(db *sql.DB) ([]StoreFeed, error) {
-	// db.Query returns rows (plural) — you iterate with Next().
-	// db.QueryRow returns one row — you call Scan() directly.
 	rows, err := db.Query(`SELECT id, url, title, description, site_link,
-		COALESCE(last_fetched_at, ''), created_at FROM feeds ORDER BY created_at DESC`)
+		COALESCE(folder_id, 0), COALESCE(last_fetched_at, ''), created_at
+		FROM feeds ORDER BY COALESCE(folder_id, 0), created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("listing feeds: %w", err)
 	}
 	defer rows.Close()
 
-	// Build up a slice by iterating. This is the standard Go pattern
-	// for reading SQL result sets — there's no ORM magic.
 	var feeds []StoreFeed
 	for rows.Next() {
 		var f StoreFeed
 		if err := rows.Scan(&f.ID, &f.URL, &f.Title, &f.Description,
-			&f.SiteLink, &f.LastFetchedAt, &f.CreatedAt); err != nil {
+			&f.SiteLink, &f.FolderID, &f.LastFetchedAt, &f.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning feed: %w", err)
 		}
 		feeds = append(feeds, f)
@@ -125,27 +131,75 @@ func deleteFeed(db *sql.DB, id int64) error {
 func scanFeed(row *sql.Row) (*StoreFeed, error) {
 	var f StoreFeed
 	err := row.Scan(&f.ID, &f.URL, &f.Title, &f.Description,
-		&f.SiteLink, &f.LastFetchedAt, &f.CreatedAt)
+		&f.SiteLink, &f.FolderID, &f.LastFetchedAt, &f.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scanning feed: %w", err)
 	}
 	return &f, nil
 }
 
-// --- Article operations ---
+// --- Folder operations ---
 
-// StoreArticle represents an article row from the database.
-type StoreArticle struct {
-	ID          int64  `json:"id"`
-	FeedID      int64  `json:"feed_id"`
-	GUID        string `json:"guid"`
-	Title       string `json:"title"`
-	Link        string `json:"link"`
-	Description string `json:"description"`
-	PublishedAt string `json:"published_at,omitempty"`
-	FetchedAt   string `json:"fetched_at"`
-	IsRead      bool   `json:"is_read"`
+// listFolders returns all folders ordered by name.
+func listFolders(db *sql.DB) ([]StoreFolder, error) {
+	rows, err := db.Query(`SELECT id, name, created_at FROM folders ORDER BY name`)
+	if err != nil {
+		return nil, fmt.Errorf("listing folders: %w", err)
+	}
+	defer rows.Close()
+
+	var folders []StoreFolder
+	for rows.Next() {
+		var f StoreFolder
+		if err := rows.Scan(&f.ID, &f.Name, &f.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scanning folder: %w", err)
+		}
+		folders = append(folders, f)
+	}
+	return folders, nil
 }
+
+// getOrCreateFolder returns the ID of a folder by name, creating it if needed.
+func getOrCreateFolder(db *sql.DB, name string) (int64, error) {
+	// Try to find existing folder first
+	var id int64
+	err := db.QueryRow(`SELECT id FROM folders WHERE name = ?`, name).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+
+	// Insert new folder
+	_, err = db.Exec(`INSERT INTO folders (name) VALUES (?)`, name)
+	if err != nil {
+		return 0, fmt.Errorf("creating folder: %w", err)
+	}
+
+	// Query back to get the id (Spin SQLite doesn't support LastInsertId)
+	err = db.QueryRow(`SELECT id FROM folders WHERE name = ?`, name).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("querying new folder: %w", err)
+	}
+	return id, nil
+}
+
+// deleteFolder removes a folder. Feeds in the folder get folder_id = NULL
+// (shown under "General") via the ON DELETE SET NULL foreign key constraint.
+func deleteFolder(db *sql.DB, id int64) error {
+	_, err := db.Exec(`DELETE FROM folders WHERE id = ?`, id)
+	return err
+}
+
+// moveFeedToFolder assigns a feed to a folder. folderID of 0 clears the folder.
+func moveFeedToFolder(db *sql.DB, feedID, folderID int64) error {
+	var folderVal any
+	if folderID > 0 {
+		folderVal = folderID
+	}
+	_, err := db.Exec(`UPDATE feeds SET folder_id = ? WHERE id = ?`, folderVal, feedID)
+	return err
+}
+
+// --- Article operations ---
 
 // insertArticles stores new articles for a feed, skipping duplicates.
 // Returns the number of newly inserted articles.

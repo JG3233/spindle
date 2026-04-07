@@ -62,6 +62,10 @@ func router(w http.ResponseWriter, r *http.Request) {
 		uiMarkAllReadHandler(w, r)
 	case method == http.MethodPost && strings.HasSuffix(path, "/toggle-read") && strings.HasPrefix(path, "/api/ui/articles/"):
 		uiToggleReadHandler(w, r, path)
+	case method == http.MethodDelete && strings.HasPrefix(path, "/api/ui/folders/"):
+		uiDeleteFolderHandler(w, r, path)
+	case method == http.MethodPost && strings.HasSuffix(path, "/folder") && strings.HasPrefix(path, "/api/ui/feeds/"):
+		uiMoveFeedFolderHandler(w, r, path)
 
 	// --- JSON API endpoints ---
 
@@ -141,7 +145,7 @@ func createFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	feed, err := addFeed(db, req.URL)
+	feed, err := addFeed(db, req.URL, 0)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			writeJSON(w, http.StatusConflict, map[string]string{

@@ -20,7 +20,7 @@ import (
 // Go's html/template package, but for learning, raw string formatting
 // makes the HTML generation visible and obvious.
 
-// uiFeedsListHandler returns the feed sidebar HTML.
+// uiFeedsListHandler returns the feed sidebar HTML, grouped by folder.
 // GET /api/ui/feeds
 func uiFeedsListHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := openDB()
@@ -35,44 +35,13 @@ func uiFeedsListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var b strings.Builder
-
-	// "All Articles" link at top
-	b.WriteString(`<div class="feed-item all-feeds-item" `)
-	b.WriteString(`hx-get="/api/ui/articles" hx-target="#article-list" hx-swap="innerHTML" `)
-	b.WriteString(`onclick="document.getElementById('content-title').textContent='All Articles'">`)
-	b.WriteString(`<span class="feed-title">All Articles</span>`)
-	b.WriteString(`<span class="feed-actions">` +
-		`<button class="btn-icon" ` +
-		`onclick="event.stopPropagation(); refreshAllFeeds(this)" ` +
-		`title="Refresh all">&#8635;</button>` +
-		`</span>`)
-	b.WriteString(`</div>`)
-
-	if len(feeds) == 0 {
-		b.WriteString(`<p class="empty">No feeds yet. Add one above!</p>`)
+	folders, err := listFolders(db)
+	if err != nil {
+		writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to load folders</p>`)
+		return
 	}
 
-	for _, f := range feeds {
-		fmt.Fprintf(&b, `<div class="feed-item" data-feed-id="%d" `+
-			`hx-get="/api/ui/articles?feed_id=%d" hx-target="#article-list" hx-swap="innerHTML" `+
-			`onclick="document.getElementById('content-title').textContent='%s'">`,
-			f.ID, f.ID, escapeHTML(f.Title))
-		fmt.Fprintf(&b, `<span class="feed-title">%s</span>`, escapeHTML(f.Title))
-		fmt.Fprintf(&b, `<span class="feed-actions">`+
-			`<button class="btn-icon" hx-post="/api/ui/feeds/%d/refresh" `+
-			`hx-target="#article-list" hx-swap="innerHTML" `+
-			`hx-disabled-elt="this" `+
-			`onclick="event.stopPropagation()" title="Refresh">&#8635;</button>`+
-			`<button class="btn-icon" hx-delete="/api/ui/feeds/%d" `+
-			`hx-target="#feed-list" hx-swap="innerHTML" `+
-			`hx-confirm="Unsubscribe from %s?" `+
-			`onclick="event.stopPropagation()" title="Unsubscribe">&#10005;</button>`+
-			`</span>`, f.ID, f.ID, escapeHTML(f.Title))
-		b.WriteString(`</div>`)
-	}
-
-	writeHTML(w, http.StatusOK, b.String())
+	writeHTML(w, http.StatusOK, renderFeedList(feeds, folders))
 }
 
 // uiCreateFeedHandler subscribes and returns updated feed list.
@@ -90,7 +59,17 @@ func uiCreateFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	feed, err := addFeed(db, url)
+	// Assign to a folder if a name was provided.
+	var folderID int64
+	if folderName := r.FormValue("folder_name"); folderName != "" {
+		folderID, err = getOrCreateFolder(db, folderName)
+		if err != nil {
+			writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to create folder</p>`)
+			return
+		}
+	}
+
+	feed, err := addFeed(db, url, folderID)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			// Still return the feed list so the UI isn't broken
@@ -249,6 +228,46 @@ func uiToggleReadHandler(w http.ResponseWriter, r *http.Request, path string) {
 	updateArticleRead(db, id, !article.IsRead)
 	article, _ = getArticle(db, id)
 	writeHTML(w, http.StatusOK, renderOneArticle(article))
+}
+
+// uiDeleteFolderHandler deletes a folder and returns the updated feed list.
+// Feeds in the deleted folder move to General (folder_id = NULL via ON DELETE SET NULL).
+// DELETE /api/ui/folders/:id
+func uiDeleteFolderHandler(w http.ResponseWriter, r *http.Request, path string) {
+	id := parseFolderID(path)
+	if id == -1 {
+		http.NotFound(w, r)
+		return
+	}
+
+	db, err := openDB()
+	if err != nil {
+		writeHTML(w, http.StatusInternalServerError, `<p class="error">Database error</p>`)
+		return
+	}
+
+	deleteFolder(db, id)
+	uiFeedsListHandler(w, r)
+}
+
+// uiMoveFeedFolderHandler moves a feed to a folder and returns the updated feed list.
+// POST /api/ui/feeds/:id/folder (form: folder_id=N, or folder_id=0 for General)
+func uiMoveFeedFolderHandler(w http.ResponseWriter, r *http.Request, path string) {
+	feedID := parseFeedIDFromUIFolder(path)
+	if feedID == -1 {
+		http.NotFound(w, r)
+		return
+	}
+
+	db, err := openDB()
+	if err != nil {
+		writeHTML(w, http.StatusInternalServerError, `<p class="error">Database error</p>`)
+		return
+	}
+
+	folderID, _ := strconv.ParseInt(r.FormValue("folder_id"), 10, 64)
+	moveFeedToFolder(db, feedID, folderID)
+	uiFeedsListHandler(w, r)
 }
 
 // uiMarkAllReadHandler marks all articles read and returns updated list.
