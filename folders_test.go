@@ -49,6 +49,28 @@ func TestParseFeedIDFromUIFolder(t *testing.T) {
 	}
 }
 
+func TestParseFolderIDFromRefresh(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want int64
+	}{
+		{"valid", "/api/ui/folders/5/refresh", 5},
+		{"single digit", "/api/ui/folders/1/refresh", 1},
+		{"non-numeric", "/api/ui/folders/abc/refresh", -1},
+		{"empty id", "/api/ui/folders//refresh", -1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseFolderIDFromRefresh(tt.path)
+			if got != tt.want {
+				t.Errorf("parseFolderIDFromRefresh(%q) = %d, want %d", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
 // --- renderFeedList ---
 
 func TestRenderFeedList_Empty(t *testing.T) {
@@ -114,6 +136,29 @@ func TestRenderFeedList_WithFolders(t *testing.T) {
 	}
 	if !containsStr(html, "BBC") {
 		t.Error("expected news feed title")
+	}
+}
+
+func TestRenderFeedList_FolderClickable(t *testing.T) {
+	folders := []StoreFolder{{ID: 7, Name: "Science"}}
+	feeds := []StoreFeed{{ID: 1, Title: "Nature", FolderID: 7}}
+	html := renderFeedList(feeds, folders)
+
+	if !containsStr(html, `/api/ui/articles?folder_id=7`) {
+		t.Error("expected folder to link to folder articles endpoint")
+	}
+	if !containsStr(html, "folder-link") {
+		t.Error("expected folder-link CSS class on folder name")
+	}
+}
+
+func TestRenderFeedList_FolderRefreshButton(t *testing.T) {
+	folders := []StoreFolder{{ID: 7, Name: "Science"}}
+	feeds := []StoreFeed{{ID: 1, Title: "Nature", FolderID: 7}}
+	html := renderFeedList(feeds, folders)
+
+	if !containsStr(html, `/api/ui/folders/7/refresh`) {
+		t.Error("expected folder refresh endpoint in folder header")
 	}
 }
 

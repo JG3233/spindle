@@ -54,14 +54,25 @@ func renderFeedList(feeds []StoreFeed, folders []StoreFolder) string {
 		ffeeds := folderFeeds[folder.ID]
 		fmt.Fprintf(&b, `<div class="folder-section">`)
 		fmt.Fprintf(&b, `<div class="folder-header">`+
-			`<span class="folder-name">%s</span>`+
+			`<span class="folder-name folder-link" `+
+			`hx-get="/api/ui/articles?folder_id=%d" `+
+			`hx-target="#article-list" hx-swap="innerHTML" `+
+			`onclick="document.getElementById('content-title').textContent='%s'">%s</span>`+
+			`<span class="folder-header-actions">`+
+			`<button class="btn-icon" `+
+			`hx-post="/api/ui/folders/%d/refresh" `+
+			`hx-target="#article-list" hx-swap="innerHTML" `+
+			`hx-disabled-elt="this" `+
+			`title="Refresh folder">&#8635;</button>`+
 			`<button class="btn-icon folder-delete" `+
 			`hx-delete="/api/ui/folders/%d" `+
 			`hx-target="#feed-list" hx-swap="innerHTML" `+
 			`hx-confirm="Delete folder %s? Feeds will move to General." `+
 			`title="Delete folder">&#10005;</button>`+
+			`</span>`+
 			`</div>`,
-			escapeHTML(folder.Name), folder.ID, escapeHTML(folder.Name))
+			folder.ID, escapeHTML(folder.Name), escapeHTML(folder.Name),
+			folder.ID, folder.ID, escapeHTML(folder.Name))
 		for _, f := range ffeeds {
 			b.WriteString(renderFeedItem(f, folders))
 		}

@@ -229,12 +229,25 @@ header h1 {
     flex: 1;
 }
 
-.folder-delete {
+.folder-link {
+    cursor: pointer;
+    transition: color 0.12s;
+}
+
+.folder-link:hover { color: var(--text); }
+
+.folder-header-actions {
+    display: flex;
+    gap: 0.1rem;
     opacity: 0;
     transition: opacity 0.12s;
 }
 
-.folder-header:hover .folder-delete { opacity: 1; }
+.folder-header:hover .folder-header-actions { opacity: 1; }
+
+.folder-delete {
+    opacity: 1;
+}
 
 /* Folder move select in feed items */
 .folder-select {

@@ -262,6 +262,58 @@ func refreshFeed(db *sql.DB, feed *StoreFeed) (int, error) {
 	return countAfter - countBefore, nil
 }
 
+// listArticlesByFolder returns all articles for feeds in a given folder,
+// ordered by published date descending.
+func listArticlesByFolder(db *sql.DB, folderID int64, limit, offset int) ([]StoreArticle, error) {
+	rows, err := db.Query(`
+		SELECT a.id, a.feed_id, a.guid, a.title, a.link, a.description,
+		       COALESCE(a.published_at, ''), a.fetched_at, a.is_read
+		FROM articles a
+		JOIN feeds f ON a.feed_id = f.id
+		WHERE f.folder_id = ?
+		ORDER BY a.published_at DESC, a.fetched_at DESC, a.id DESC
+		LIMIT ? OFFSET ?`, folderID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("listing articles by folder: %w", err)
+	}
+	defer rows.Close()
+
+	var articles []StoreArticle
+	for rows.Next() {
+		var a StoreArticle
+		var isReadInt int
+		if err := rows.Scan(&a.ID, &a.FeedID, &a.GUID, &a.Title, &a.Link,
+			&a.Description, &a.PublishedAt, &a.FetchedAt, &isReadInt); err != nil {
+			return nil, fmt.Errorf("scanning article: %w", err)
+		}
+		a.IsRead = isReadInt == 1
+		articles = append(articles, a)
+	}
+	return articles, nil
+}
+
+// listFeedsByFolder returns all feeds belonging to a folder.
+func listFeedsByFolder(db *sql.DB, folderID int64) ([]StoreFeed, error) {
+	rows, err := db.Query(`SELECT id, url, title, description, site_link,
+		COALESCE(folder_id, 0), COALESCE(last_fetched_at, ''), created_at
+		FROM feeds WHERE folder_id = ? ORDER BY created_at DESC`, folderID)
+	if err != nil {
+		return nil, fmt.Errorf("listing feeds by folder: %w", err)
+	}
+	defer rows.Close()
+
+	var feeds []StoreFeed
+	for rows.Next() {
+		var f StoreFeed
+		if err := rows.Scan(&f.ID, &f.URL, &f.Title, &f.Description,
+			&f.SiteLink, &f.FolderID, &f.LastFetchedAt, &f.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scanning feed: %w", err)
+		}
+		feeds = append(feeds, f)
+	}
+	return feeds, nil
+}
+
 // listArticles queries articles with optional filters.
 // feedID of 0 means all feeds. isRead: 0=unread, 1=read, -1=all.
 func listArticles(db *sql.DB, feedID int64, isRead int, limit, offset int) ([]StoreArticle, error) {

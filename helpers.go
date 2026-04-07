@@ -60,6 +60,17 @@ func parseFeedIDFromUIFolder(path string) int64 {
 	return id
 }
 
+// parseFolderIDFromRefresh handles "/api/ui/folders/5/refresh" → 5
+func parseFolderIDFromRefresh(path string) int64 {
+	trimmed := strings.TrimPrefix(path, "/api/ui/folders/")
+	trimmed = strings.TrimSuffix(trimmed, "/refresh")
+	id, err := strconv.ParseInt(trimmed, 10, 64)
+	if err != nil {
+		return -1
+	}
+	return id
+}
+
 // --- HTML helpers ---
 
 func escapeHTML(s string) string {

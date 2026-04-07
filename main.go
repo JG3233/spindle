@@ -64,6 +64,8 @@ func router(w http.ResponseWriter, r *http.Request) {
 		uiToggleReadHandler(w, r, path)
 	case method == http.MethodDelete && strings.HasPrefix(path, "/api/ui/folders/"):
 		uiDeleteFolderHandler(w, r, path)
+	case method == http.MethodPost && strings.HasSuffix(path, "/refresh") && strings.HasPrefix(path, "/api/ui/folders/"):
+		uiRefreshFolderHandler(w, r, path)
 	case method == http.MethodPost && strings.HasSuffix(path, "/folder") && strings.HasPrefix(path, "/api/ui/feeds/"):
 		uiMoveFeedFolderHandler(w, r, path)
 
