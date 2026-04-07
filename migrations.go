@@ -40,3 +40,16 @@ const createArticleIndexes = `
 CREATE INDEX IF NOT EXISTS idx_articles_feed_id ON articles(feed_id);
 CREATE INDEX IF NOT EXISTS idx_articles_is_read ON articles(is_read)
 `
+
+const createFoldersTable = `
+CREATE TABLE IF NOT EXISTS folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`
+
+// addFolderIDToFeeds is an ALTER TABLE migration — SQLite doesn't support
+// IF NOT EXISTS on ADD COLUMN, so we run it and ignore "duplicate column" errors.
+const addFolderIDToFeeds = `ALTER TABLE feeds ADD COLUMN folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL`
+
+const createFeedFolderIndex = `CREATE INDEX IF NOT EXISTS idx_feeds_folder_id ON feeds(folder_id)`

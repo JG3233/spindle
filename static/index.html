@@ -98,8 +98,11 @@
                           hx-target="#feed-list"
                           hx-swap="innerHTML"
                           hx-on::after-request="if(event.detail.successful) this.reset()">
-                        <input type="url" name="url" placeholder="Paste feed URL..." required>
-                        <button type="submit">+</button>
+                        <div class="subscribe-row">
+                            <input type="url" name="url" placeholder="Paste feed URL..." required>
+                            <button type="submit">+</button>
+                        </div>
+                        <input type="text" name="folder_name" placeholder="Folder (optional)">
                     </form>
                 </div>
                 <nav>

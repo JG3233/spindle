@@ -82,3 +82,37 @@ type Article struct {
 	Description string `json:"description"`
 	PublishedAt string `json:"published_at"`
 }
+
+// --- Database types ---
+//
+// These live here (no build tag) so they can be used in tests without
+// pulling in the Spin SDK. The DB operations that use them are in store.go.
+
+type StoreFolder struct {
+	ID        int64  `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+}
+
+type StoreFeed struct {
+	ID            int64  `json:"id"`
+	URL           string `json:"url"`
+	Title         string `json:"title"`
+	Description   string `json:"description"`
+	SiteLink      string `json:"site_link"`
+	FolderID      int64  `json:"folder_id,omitempty"`
+	LastFetchedAt string `json:"last_fetched_at,omitempty"`
+	CreatedAt     string `json:"created_at"`
+}
+
+type StoreArticle struct {
+	ID          int64  `json:"id"`
+	FeedID      int64  `json:"feed_id"`
+	GUID        string `json:"guid"`
+	Title       string `json:"title"`
+	Link        string `json:"link"`
+	Description string `json:"description"`
+	PublishedAt string `json:"published_at,omitempty"`
+	FetchedAt   string `json:"fetched_at"`
+	IsRead      bool   `json:"is_read"`
+}

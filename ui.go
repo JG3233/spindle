@@ -20,7 +20,7 @@ import (
 // Go's html/template package, but for learning, raw string formatting
 // makes the HTML generation visible and obvious.
 
-// uiFeedsListHandler returns the feed sidebar HTML.
+// uiFeedsListHandler returns the feed sidebar HTML, grouped by folder.
 // GET /api/ui/feeds
 func uiFeedsListHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := openDB()
@@ -35,44 +35,13 @@ func uiFeedsListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var b strings.Builder
-
-	// "All Articles" link at top
-	b.WriteString(`<div class="feed-item all-feeds-item" `)
-	b.WriteString(`hx-get="/api/ui/articles" hx-target="#article-list" hx-swap="innerHTML" `)
-	b.WriteString(`onclick="document.getElementById('content-title').textContent='All Articles'">`)
-	b.WriteString(`<span class="feed-title">All Articles</span>`)
-	b.WriteString(`<span class="feed-actions">` +
-		`<button class="btn-icon" ` +
-		`onclick="event.stopPropagation(); refreshAllFeeds(this)" ` +
-		`title="Refresh all">&#8635;</button>` +
-		`</span>`)
-	b.WriteString(`</div>`)
-
-	if len(feeds) == 0 {
-		b.WriteString(`<p class="empty">No feeds yet. Add one above!</p>`)
+	folders, err := listFolders(db)
+	if err != nil {
+		writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to load folders</p>`)
+		return
 	}
 
-	for _, f := range feeds {
-		fmt.Fprintf(&b, `<div class="feed-item" data-feed-id="%d" `+
-			`hx-get="/api/ui/articles?feed_id=%d" hx-target="#article-list" hx-swap="innerHTML" `+
-			`onclick="document.getElementById('content-title').textContent='%s'">`,
-			f.ID, f.ID, escapeHTML(f.Title))
-		fmt.Fprintf(&b, `<span class="feed-title">%s</span>`, escapeHTML(f.Title))
-		fmt.Fprintf(&b, `<span class="feed-actions">`+
-			`<button class="btn-icon" hx-post="/api/ui/feeds/%d/refresh" `+
-			`hx-target="#article-list" hx-swap="innerHTML" `+
-			`hx-disabled-elt="this" `+
-			`onclick="event.stopPropagation()" title="Refresh">&#8635;</button>`+
-			`<button class="btn-icon" hx-delete="/api/ui/feeds/%d" `+
-			`hx-target="#feed-list" hx-swap="innerHTML" `+
-			`hx-confirm="Unsubscribe from %s?" `+
-			`onclick="event.stopPropagation()" title="Unsubscribe">&#10005;</button>`+
-			`</span>`, f.ID, f.ID, escapeHTML(f.Title))
-		b.WriteString(`</div>`)
-	}
-
-	writeHTML(w, http.StatusOK, b.String())
+	writeHTML(w, http.StatusOK, renderFeedList(feeds, folders))
 }
 
 // uiCreateFeedHandler subscribes and returns updated feed list.
@@ -90,7 +59,17 @@ func uiCreateFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	feed, err := addFeed(db, url)
+	// Assign to a folder if a name was provided.
+	var folderID int64
+	if folderName := r.FormValue("folder_name"); folderName != "" {
+		folderID, err = getOrCreateFolder(db, folderName)
+		if err != nil {
+			writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to create folder</p>`)
+			return
+		}
+	}
+
+	feed, err := addFeed(db, url, folderID)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			// Still return the feed list so the UI isn't broken
@@ -169,7 +148,7 @@ func uiRefreshFeedHandler(w http.ResponseWriter, r *http.Request, path string) {
 		msg = "Already up to date"
 	}
 	w.Header().Set("X-Refresh-Message", msg)
-	renderArticleList(w, db, id, 0)
+	renderArticleList(w, db, id, 0, 0)
 }
 
 // uiRefreshAllHandler refreshes all feeds and returns all articles.
@@ -206,11 +185,11 @@ func uiRefreshAllHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("X-Refresh-Message", msg)
 
-	renderArticleList(w, db, 0, 0)
+	renderArticleList(w, db, 0, 0, 0)
 }
 
 // uiArticlesHandler returns the article list HTML.
-// GET /api/ui/articles?feed_id=1&offset=0
+// GET /api/ui/articles?feed_id=1&folder_id=2&offset=0
 func uiArticlesHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := openDB()
 	if err != nil {
@@ -218,9 +197,11 @@ func uiArticlesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	feedID, _ := strconv.ParseInt(r.URL.Query().Get("feed_id"), 10, 64)
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	renderArticleList(w, db, feedID, offset)
+	q := r.URL.Query()
+	feedID, _ := strconv.ParseInt(q.Get("feed_id"), 10, 64)
+	folderID, _ := strconv.ParseInt(q.Get("folder_id"), 10, 64)
+	offset, _ := strconv.Atoi(q.Get("offset"))
+	renderArticleList(w, db, feedID, folderID, offset)
 }
 
 // uiToggleReadHandler toggles read/unread and returns the updated article.
@@ -251,6 +232,85 @@ func uiToggleReadHandler(w http.ResponseWriter, r *http.Request, path string) {
 	writeHTML(w, http.StatusOK, renderOneArticle(article))
 }
 
+// uiRefreshFolderHandler refreshes all feeds in a folder and returns their articles.
+// POST /api/ui/folders/:id/refresh
+func uiRefreshFolderHandler(w http.ResponseWriter, r *http.Request, path string) {
+	id := parseFolderIDFromRefresh(path)
+	if id == -1 {
+		http.NotFound(w, r)
+		return
+	}
+
+	db, err := openDB()
+	if err != nil {
+		writeHTML(w, http.StatusInternalServerError, `<p class="error">Database error</p>`)
+		return
+	}
+
+	feeds, err := listFeedsByFolder(db, id)
+	if err != nil {
+		writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to load feeds</p>`)
+		return
+	}
+
+	totalNew := 0
+	for i := range feeds {
+		n, _ := refreshFeed(db, &feeds[i])
+		totalNew += n
+	}
+
+	var msg string
+	if totalNew == 1 {
+		msg = "1 new article"
+	} else if totalNew > 1 {
+		msg = fmt.Sprintf("%d new articles", totalNew)
+	} else {
+		msg = "Already up to date"
+	}
+	w.Header().Set("X-Refresh-Message", msg)
+	renderArticleList(w, db, 0, id, 0)
+}
+
+// uiDeleteFolderHandler deletes a folder and returns the updated feed list.
+// Feeds in the deleted folder move to General (folder_id = NULL via ON DELETE SET NULL).
+// DELETE /api/ui/folders/:id
+func uiDeleteFolderHandler(w http.ResponseWriter, r *http.Request, path string) {
+	id := parseFolderID(path)
+	if id == -1 {
+		http.NotFound(w, r)
+		return
+	}
+
+	db, err := openDB()
+	if err != nil {
+		writeHTML(w, http.StatusInternalServerError, `<p class="error">Database error</p>`)
+		return
+	}
+
+	deleteFolder(db, id)
+	uiFeedsListHandler(w, r)
+}
+
+// uiMoveFeedFolderHandler moves a feed to a folder and returns the updated feed list.
+// POST /api/ui/feeds/:id/folder (form: folder_id=N, or folder_id=0 for General)
+func uiMoveFeedFolderHandler(w http.ResponseWriter, r *http.Request, path string) {
+	feedID := parseFeedIDFromUIFolder(path)
+	if feedID == -1 {
+		http.NotFound(w, r)
+		return
+	}
+
+	db, err := openDB()
+	if err != nil {
+		writeHTML(w, http.StatusInternalServerError, `<p class="error">Database error</p>`)
+		return
+	}
+
+	folderID, _ := strconv.ParseInt(r.FormValue("folder_id"), 10, 64)
+	moveFeedToFolder(db, feedID, folderID)
+	uiFeedsListHandler(w, r)
+}
+
 // uiMarkAllReadHandler marks all articles read and returns updated list.
 // POST /api/ui/articles/mark-all-read?feed_id=1
 func uiMarkAllReadHandler(w http.ResponseWriter, r *http.Request) {
@@ -262,15 +322,23 @@ func uiMarkAllReadHandler(w http.ResponseWriter, r *http.Request) {
 
 	feedID, _ := strconv.ParseInt(r.URL.Query().Get("feed_id"), 10, 64)
 	markAllRead(db, feedID)
-	renderArticleList(w, db, feedID, 0)
+	renderArticleList(w, db, feedID, 0, 0)
 }
 
 // --- HTML rendering helpers ---
 
 const pageSize = 25
 
-func renderArticleList(w http.ResponseWriter, db *sql.DB, feedID int64, offset int) {
-	articles, err := listArticles(db, feedID, -1, pageSize, offset)
+// renderArticleList renders a paginated article list.
+// Supply feedID>0 to filter by feed, folderID>0 to filter by folder, or both 0 for all.
+func renderArticleList(w http.ResponseWriter, db *sql.DB, feedID, folderID int64, offset int) {
+	var articles []StoreArticle
+	var err error
+	if folderID > 0 {
+		articles, err = listArticlesByFolder(db, folderID, pageSize, offset)
+	} else {
+		articles, err = listArticles(db, feedID, -1, pageSize, offset)
+	}
 	if err != nil {
 		writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to load articles</p>`)
 		return
@@ -286,20 +354,19 @@ func renderArticleList(w http.ResponseWriter, db *sql.DB, feedID int64, offset i
 		b.WriteString(renderOneArticle(&articles[i]))
 	}
 
-	// If a full page came back there may be more — show a Load more button.
-	// It targets itself with outerHTML, so clicking it appends the next batch
-	// in place of the button (and renders a new button if there's yet another page).
 	if len(articles) == pageSize {
-		feedParam := ""
-		if feedID > 0 {
-			feedParam = fmt.Sprintf("&feed_id=%d", feedID)
+		var scopeParam string
+		if folderID > 0 {
+			scopeParam = fmt.Sprintf("&folder_id=%d", folderID)
+		} else if feedID > 0 {
+			scopeParam = fmt.Sprintf("&feed_id=%d", feedID)
 		}
 		fmt.Fprintf(&b,
 			`<button id="load-more-btn" class="btn-load-more" `+
 				`hx-get="/api/ui/articles?offset=%d%s" `+
 				`hx-target="#load-more-btn" hx-swap="outerHTML" `+
 				`hx-disabled-elt="this">Load more</button>`,
-			offset+pageSize, feedParam)
+			offset+pageSize, scopeParam)
 	}
 
 	writeHTML(w, http.StatusOK, b.String())

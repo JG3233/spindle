@@ -87,7 +87,18 @@ header h1 {
 
 .subscribe-form form {
     display: flex;
+    flex-direction: column;
     gap: 0.4rem;
+}
+
+.subscribe-row {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.subscribe-row input,
+.subscribe-form input[name="folder_name"] {
+    width: 100%;
 }
 
 .subscribe-form input {
@@ -194,6 +205,68 @@ header h1 {
     display: block;
     margin-top: 0.5rem;
     border-bottom: 1px solid var(--border);
+}
+
+/* Folder sections */
+.folder-section {
+    margin-bottom: 0.25rem;
+}
+
+.folder-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.6rem 0.2rem;
+    gap: 0.25rem;
+}
+
+.folder-name {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    flex: 1;
+}
+
+.folder-link {
+    cursor: pointer;
+    transition: color 0.12s;
+}
+
+.folder-link:hover { color: var(--text); }
+
+.folder-header-actions {
+    display: flex;
+    gap: 0.1rem;
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+
+.folder-header:hover .folder-header-actions { opacity: 1; }
+
+.folder-delete {
+    opacity: 1;
+}
+
+/* Folder move select in feed items */
+.folder-select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    padding: 0.1rem 0.2rem;
+    cursor: pointer;
+    max-width: 80px;
+    transition: border-color 0.12s;
+}
+
+.folder-select:hover,
+.folder-select:focus {
+    border-color: var(--purple);
+    outline: none;
+    color: var(--text);
 }
 
 /* Content */
