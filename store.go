@@ -24,7 +24,7 @@ func openDB() (*sql.DB, error) {
 	// Run each migration. IF NOT EXISTS makes these no-ops after first run.
 	for _, migration := range []string{
 		createFeedsTable, createArticlesTable, createArticleIndexes,
-		createFoldersTable, createFeedFolderIndex,
+		createFoldersTable,
 	} {
 		if _, err := db.Exec(migration); err != nil {
 			return nil, fmt.Errorf("running migration: %w", err)
@@ -37,6 +37,11 @@ func openDB() (*sql.DB, error) {
 		if !strings.Contains(err.Error(), "duplicate column name") {
 			return nil, fmt.Errorf("running migration: %w", err)
 		}
+	}
+
+	// This index depends on folder_id existing — must run after the ALTER TABLE above.
+	if _, err := db.Exec(createFeedFolderIndex); err != nil {
+		return nil, fmt.Errorf("running migration: %w", err)
 	}
 
 	return db, nil

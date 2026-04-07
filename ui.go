@@ -232,45 +232,6 @@ func uiToggleReadHandler(w http.ResponseWriter, r *http.Request, path string) {
 	writeHTML(w, http.StatusOK, renderOneArticle(article))
 }
 
-// uiRefreshFolderHandler refreshes all feeds in a folder and returns their articles.
-// POST /api/ui/folders/:id/refresh
-func uiRefreshFolderHandler(w http.ResponseWriter, r *http.Request, path string) {
-	id := parseFolderIDFromRefresh(path)
-	if id == -1 {
-		http.NotFound(w, r)
-		return
-	}
-
-	db, err := openDB()
-	if err != nil {
-		writeHTML(w, http.StatusInternalServerError, `<p class="error">Database error</p>`)
-		return
-	}
-
-	feeds, err := listFeedsByFolder(db, id)
-	if err != nil {
-		writeHTML(w, http.StatusInternalServerError, `<p class="error">Failed to load feeds</p>`)
-		return
-	}
-
-	totalNew := 0
-	for i := range feeds {
-		n, _ := refreshFeed(db, &feeds[i])
-		totalNew += n
-	}
-
-	var msg string
-	if totalNew == 1 {
-		msg = "1 new article"
-	} else if totalNew > 1 {
-		msg = fmt.Sprintf("%d new articles", totalNew)
-	} else {
-		msg = "Already up to date"
-	}
-	w.Header().Set("X-Refresh-Message", msg)
-	renderArticleList(w, db, 0, id, 0)
-}
-
 // uiDeleteFolderHandler deletes a folder and returns the updated feed list.
 // Feeds in the deleted folder move to General (folder_id = NULL via ON DELETE SET NULL).
 // DELETE /api/ui/folders/:id

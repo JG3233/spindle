@@ -60,9 +60,7 @@ func renderFeedList(feeds []StoreFeed, folders []StoreFolder) string {
 			`onclick="document.getElementById('content-title').textContent='%s'">%s</span>`+
 			`<span class="folder-header-actions">`+
 			`<button class="btn-icon" `+
-			`hx-post="/api/ui/folders/%d/refresh" `+
-			`hx-target="#article-list" hx-swap="innerHTML" `+
-			`hx-disabled-elt="this" `+
+			`onclick="refreshFolderFeeds(this, %d)" `+
 			`title="Refresh folder">&#8635;</button>`+
 			`<button class="btn-icon folder-delete" `+
 			`hx-delete="/api/ui/folders/%d" `+
