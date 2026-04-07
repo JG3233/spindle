@@ -19,6 +19,48 @@
                 t.style.opacity = '0';
             }, 2500);
         }
+
+        // Refresh all feeds in parallel by fanning out individual per-feed requests
+        // from the browser. This is the only way to achieve concurrency given WASM's
+        // single-threaded constraint (no goroutines = no server-side parallelism).
+        function refreshAllFeeds(btn) {
+            btn.disabled = true;
+            var feedIds = Array.from(
+                document.querySelectorAll('#feed-list [data-feed-id]')
+            ).map(function(el) { return el.dataset.feedId; });
+
+            if (feedIds.length === 0) {
+                htmx.ajax('GET', '/api/ui/articles', {target: '#article-list', swap: 'innerHTML'});
+                btn.disabled = false;
+                return;
+            }
+
+            var totalNew = 0;
+            var remaining = feedIds.length;
+
+            feedIds.forEach(function(id) {
+                fetch('/api/ui/feeds/' + id + '/refresh', {method: 'POST'})
+                    .then(function(resp) {
+                        var msg = resp.headers.get('X-Refresh-Message') || '';
+                        var match = msg.match(/^(\d+)/);
+                        if (match) totalNew += parseInt(match[1]);
+                    })
+                    .catch(function() {})
+                    .finally(function() {
+                        if (--remaining === 0) {
+                            htmx.ajax('GET', '/api/ui/articles', {target: '#article-list', swap: 'innerHTML'});
+                            htmx.ajax('GET', '/api/ui/feeds', {target: '#feed-list', swap: 'innerHTML'});
+                            showRefreshToast(
+                                totalNew === 0 ? 'Already up to date' :
+                                totalNew === 1 ? '1 new article' :
+                                totalNew + ' new articles'
+                            );
+                            btn.disabled = false;
+                        }
+                    });
+            });
+        }
+
         // htmx:afterRequest is a built-in HTMX event guaranteed to bubble to document.
         // We check the hx-post attribute to identify refresh/subscribe requests, then
         // read the message from a plain response header (no HTMX event parsing involved).
@@ -26,7 +68,7 @@
             if (!e.detail.successful) return;
             var post = e.detail.elt.getAttribute('hx-post') || '';
             var msg = e.detail.xhr.getResponseHeader('X-Refresh-Message');
-            if (post === '/api/ui/feeds/refresh-all' || /\/api\/ui\/feeds\/\d+\/refresh$/.test(post)) {
+            if (/\/api\/ui\/feeds\/\d+\/refresh$/.test(post)) {
                 if (msg) showRefreshToast(msg);
             } else if (post === '/api/ui/feeds') {
                 // New feed subscribed: articles were already stored by addFeed,
@@ -81,10 +123,7 @@
                                 class="btn-secondary">
                             Mark all read
                         </button>
-                        <button hx-post="/api/ui/feeds/refresh-all"
-                                hx-target="#article-list"
-                                hx-swap="innerHTML"
-                                hx-disabled-elt="this"
+                        <button onclick="refreshAllFeeds(this)"
                                 class="btn-secondary">
                             Refresh
                         </button>
