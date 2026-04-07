@@ -61,6 +61,46 @@
             });
         }
 
+        // Refresh all feeds in a specific folder in parallel, same approach as refreshAllFeeds.
+        function refreshFolderFeeds(btn, folderId) {
+            btn.disabled = true;
+            var feedIds = Array.from(
+                document.querySelectorAll('#feed-list [data-feed-id]')
+            ).filter(function(el) {
+                return el.closest('.folder-section') === btn.closest('.folder-section');
+            }).map(function(el) { return el.dataset.feedId; });
+
+            if (feedIds.length === 0) {
+                htmx.ajax('GET', '/api/ui/articles?folder_id=' + folderId, {target: '#article-list', swap: 'innerHTML'});
+                btn.disabled = false;
+                return;
+            }
+
+            var totalNew = 0;
+            var remaining = feedIds.length;
+
+            feedIds.forEach(function(id) {
+                fetch('/api/ui/feeds/' + id + '/refresh', {method: 'POST'})
+                    .then(function(resp) {
+                        var msg = resp.headers.get('X-Refresh-Message') || '';
+                        var match = msg.match(/^(\d+)/);
+                        if (match) totalNew += parseInt(match[1]);
+                    })
+                    .catch(function() {})
+                    .finally(function() {
+                        if (--remaining === 0) {
+                            htmx.ajax('GET', '/api/ui/articles?folder_id=' + folderId, {target: '#article-list', swap: 'innerHTML'});
+                            showRefreshToast(
+                                totalNew === 0 ? 'Already up to date' :
+                                totalNew === 1 ? '1 new article' :
+                                totalNew + ' new articles'
+                            );
+                            btn.disabled = false;
+                        }
+                    });
+            });
+        }
+
         // htmx:afterRequest is a built-in HTMX event guaranteed to bubble to document.
         // We check the hx-post attribute to identify refresh/subscribe requests, then
         // read the message from a plain response header (no HTMX event parsing involved).

@@ -157,8 +157,8 @@ func TestRenderFeedList_FolderRefreshButton(t *testing.T) {
 	feeds := []StoreFeed{{ID: 1, Title: "Nature", FolderID: 7}}
 	html := renderFeedList(feeds, folders)
 
-	if !containsStr(html, `/api/ui/folders/7/refresh`) {
-		t.Error("expected folder refresh endpoint in folder header")
+	if !containsStr(html, `refreshFolderFeeds(this, 7)`) {
+		t.Error("expected refreshFolderFeeds JS call in folder header refresh button")
 	}
 }
 
