@@ -43,10 +43,9 @@ func uiFeedsListHandler(w http.ResponseWriter, r *http.Request) {
 	b.WriteString(`onclick="document.getElementById('content-title').textContent='All Articles'">`)
 	b.WriteString(`<span class="feed-title">All Articles</span>`)
 	b.WriteString(`<span class="feed-actions">` +
-		`<button class="btn-icon" hx-post="/api/ui/feeds/refresh-all" ` +
-		`hx-target="#article-list" hx-swap="innerHTML" ` +
-		`hx-disabled-elt="this" ` +
-		`onclick="event.stopPropagation()" title="Refresh all">&#8635;</button>` +
+		`<button class="btn-icon" ` +
+		`onclick="event.stopPropagation(); refreshAllFeeds(this)" ` +
+		`title="Refresh all">&#8635;</button>` +
 		`</span>`)
 	b.WriteString(`</div>`)
 
@@ -55,10 +54,10 @@ func uiFeedsListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, f := range feeds {
-		fmt.Fprintf(&b, `<div class="feed-item" `+
+		fmt.Fprintf(&b, `<div class="feed-item" data-feed-id="%d" `+
 			`hx-get="/api/ui/articles?feed_id=%d" hx-target="#article-list" hx-swap="innerHTML" `+
 			`onclick="document.getElementById('content-title').textContent='%s'">`,
-			f.ID, escapeHTML(f.Title))
+			f.ID, f.ID, escapeHTML(f.Title))
 		fmt.Fprintf(&b, `<span class="feed-title">%s</span>`, escapeHTML(f.Title))
 		fmt.Fprintf(&b, `<span class="feed-actions">`+
 			`<button class="btn-icon" hx-post="/api/ui/feeds/%d/refresh" `+
